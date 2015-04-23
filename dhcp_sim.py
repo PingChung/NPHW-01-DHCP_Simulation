@@ -1,6 +1,7 @@
 # -*- coding: utf8 -*-
 import argparse, random, socket, sys, datetime
 import uuid
+from time import asctime
 
 BUF_SIZE = 65535
 
@@ -36,9 +37,7 @@ def DHCPDISCOVER():
     packet += b'\x00\x00\x00\x00'   #Your (client) IP address: 0.0.0.0
     packet += b'\x00\x00\x00\x00'   #Next server IP address: 0.0.0.0
     packet += b'\x00\x00\x00\x00'   #Relay agent IP address: 0.0.0.0
-
     
-    #packet += getMacAddr().encode('utf-8')
     packet += b'\x00\x26\x9e\x04\x1e\x9b'   #Client MAC address: 00:26:9e:04:1e:9b
     packet += b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'   #Client hardware address padding: 00000000000000000000
     packet += b'\x00' * 64  #Server host name not given
@@ -110,7 +109,9 @@ def DHCPREQUEST():
     packet += b'\x00'
     return packet
 
-def DHCPACK():
+def DHCPACK(ip_pool):
+    ip = ip_pool.pop(0)
+
     packet = b''
     packet += b'\x02'   #Message type: Boot Request (1)
     packet += b'\x01'   #Hardware type: Ethernet
@@ -120,7 +121,8 @@ def DHCPACK():
     packet += b'\x00\x00'    #Seconds elapsed: 0
     packet += b'\x00\x00'   #Bootp flags: 0x8000 (Broadcast) + reserved flags
     packet += b'\x00\x00\x00\x00'   #Client IP address: 0.0.0.0
-    packet += b'\xc0\xa8\x00\x0a'   #Your (client) IP address: 0.0.0.0
+    packet += ip
+    #packet += b'\xc0\xa8\x00\x0a'   #Your (client) IP address: 0.0.0.0
     packet += b'\x00\x00\x00\x00'   #Next server IP address: 0.0.0.0
     packet += b'\x00\x00\x00\x00'   #Relay agent IP address: 0.0.0.0
     packet += b'\x00\x26\x9e\x04\x1e\x9b'   #Client MAC address: 00:26:9e:04:1e:9b
@@ -137,9 +139,21 @@ def DHCPACK():
     packet += b'\x01\x04\xff\xff\xff\x00'
     packet += b'\xff'
     packet += (b'\x00' * 26)   #End Option
+
+    ip_pool.append(ip)
+    
     return packet
 
+def condition(c):
+    if c == 't' or 'T' or 'True' or 'true' or 'y' or 'Y':
+        return True
+    elif c == 'n':
+        return False
+
 def server():
+    #settings
+    ip_pool = [b'\xc0\xa8\x00\x0a', b'\xc0\xa8\x00\x0b', b'\xc0\xa8\x00\x0c']
+
     print(datetime.date.today())
     ssock = setServerSocket()
     print("Listening for incoming request......")
@@ -151,26 +165,29 @@ def server():
             ssock.sendto(DHCPOFFER(), ("255.255.255.255", 68))
         elif data[242] == 3:
             print(data[242])
-            ssock.sendto(DHCPACK(), ("255.255.255.255", 68))
-            break
+            ssock.sendto(DHCPACK(ip_pool), ("255.255.255.255", 68))
+            #break
     ssock.close()
 
+          
 def client():
-    csock = setClientSocket()
-    print("Sending DHCPDISCOVER......")
-    csock.sendto(DHCPDISCOVER(), ("255.255.255.255", 67))
-
     while True:
-        data, address = csock.recvfrom(BUF_SIZE)
-        if data[242] == 2:
-            print(data[242])
-            csock.sendto(DHCPREQUEST(), ("255.255.255.255", 67))
-        elif data[242] == 5:
-            print(data[242])
-            print("My address  : {}.{}.{}.{}".format(data[16],data[17],data[18],data[19]))
-            break
+        csock = setClientSocket()
+        print("Sending DHCPDISCOVER......")
+        csock.sendto(DHCPDISCOVER(), ("255.255.255.255", 67))
 
-    csock.close()
+        while True:
+            data, address = csock.recvfrom(BUF_SIZE)
+            if data[242] == 2:
+                print(data[242])
+                csock.sendto(DHCPREQUEST(), ("255.255.255.255", 67))
+            elif data[242] == 5:
+                print(data[242])
+                print("My address  : {}.{}.{}.{}".format(data[16],data[17],data[18],data[19]))
+                break
+        csock.close()
+        if(input('繼續？（Yes/No）') == 'No'):
+            break
 
 if __name__ == '__main__':
     #Choose Role
