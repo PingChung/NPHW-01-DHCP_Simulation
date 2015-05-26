@@ -1,6 +1,7 @@
 import socket
 
-def Discover():
+
+def discover():
     OP =     (1).to_bytes(1, 'big')      # client to server
     HTYPE =  (1).to_bytes(1, 'big')      # hardware type; 1 for Ethernet
     HLEN =   (6).to_bytes(1, 'big')      # hardware address length; 6 Bytes
@@ -21,7 +22,7 @@ def Discover():
     LENGTH = (1).to_bytes(1, 'big')  # 1: length
     TYPE =   (1).to_bytes(1, 'big')  # 1: DHCP discover
     END =    (255).to_bytes(1, 'big')
-    
+
     packet = OP + HTYPE + HLEN + HOPS + XID + \
              SECS + FLAGS + \
              CIADDR + YIADDR + SIADDR + GIADDR + \
@@ -30,8 +31,8 @@ def Discover():
 
     return packet
 
-def Offer():
-    OP =     (1).to_bytes(1, 'big')      # client to server
+def offer():
+    OP =     (2).to_bytes(1, 'big')      # server to client
     HTYPE =  (1).to_bytes(1, 'big')      # hardware type; 1 for Ethernet
     HLEN =   (6).to_bytes(1, 'big')      # hardware address length; 6 Bytes
     HOPS =   (0).to_bytes(1, 'big')      # how many hops pass
@@ -49,7 +50,7 @@ def Offer():
     # option
     CLASS =  (53).to_bytes(1, 'big') # 53: DHCP type
     LENGTH = (1).to_bytes(1, 'big')  # 1: length
-    TYPE =   (2).to_bytes(1, 'big')  # 1: DHCP discover
+    TYPE =   (2).to_bytes(1, 'big')  # 1: DHCP offer
     END =    (255).to_bytes(1, 'big')
 
     packet = OP + HTYPE + HLEN + HOPS + XID + \
@@ -60,7 +61,7 @@ def Offer():
 
     return packet
 
-def Request():
+def request():
     OP =     (1).to_bytes(1, 'big')      # Client to server
     HTYPE =  (1).to_bytes(1, 'big')      # Hardware type; 1 for Ethernet
     HLEN =   (6).to_bytes(1, 'big')      # Hardware address length; 6 Bytes
@@ -79,7 +80,7 @@ def Request():
     # option
     CLASS =  (53).to_bytes(1, 'big') # 53: DHCP type
     LENGTH = (1).to_bytes(1, 'big')  # 1: length
-    TYPE =   (3).to_bytes(1, 'big')  # 1: DHCP discover
+    TYPE =   (3).to_bytes(1, 'big')  # 1: DHCP request
     END =    (255).to_bytes(1, 'big')
 
     packet = OP + HTYPE + HLEN + HOPS + XID + \
@@ -90,7 +91,7 @@ def Request():
 
     return packet
 
-def Ack():
+def ack():
     OP =     (2).to_bytes(1, 'big')      # Server to Client
     HTYPE =  (1).to_bytes(1, 'big')      # Hardware type; 1 for Ethernet
     HLEN =   (6).to_bytes(1, 'big')      # Hardware address length; 6 Bytes
@@ -99,7 +100,7 @@ def Ack():
     SECS =   (0).to_bytes(2, 'big')      # Seconds elapsed
     FLAGS =  (0).to_bytes(2, 'big')      # Bootp flags
     CIADDR = socket.inet_aton("0.0.0.0") # Client IP address
-    YIADDR = socket.inet_aton("0.0.0.0") # Your (client) IP address
+    YIADDR = socket.inet_aton("192.168.0.1") # Your (client) IP address
     SIADDR = socket.inet_aton("0.0.0.0") # Next server IP address
     GIADDR = socket.inet_aton("0.0.0.0") # Relay agent IP address
     CHADDR = (112233).to_bytes(6, 'big') + (0).to_bytes(10, 'big') # Client MAC address + padding
@@ -109,7 +110,7 @@ def Ack():
     # option
     CLASS =  (53).to_bytes(1, 'big') # 53: DHCP type
     LENGTH = (1).to_bytes(1, 'big')  # 1: length
-    TYPE =   (5).to_bytes(1, 'big')  # 1: DHCP discover
+    TYPE =   (5).to_bytes(1, 'big')  # 1: DHCP ack
     END =    (255).to_bytes(1, 'big')
 
     packet = OP + HTYPE + HLEN + HOPS + XID + \
@@ -119,43 +120,6 @@ def Ack():
              CLASS + LENGTH + TYPE + END
 
     return packet
-
-
-def DHCPACK(ip_pool):
-    ip = ip_pool.pop(0)
-
-    packet = b''
-    packet += b'\x02'   #Message type: Boot Request (1)
-    packet += b'\x01'   #Hardware type: Ethernet
-    packet += b'\x06'   #Hardware address length: 6
-    packet += b'\x00'   #Hops: 0 
-    packet += b'\x39\x03\xf3\xfb'       #Transaction ID
-    packet += b'\x00\x00'    #Seconds elapsed: 0
-    packet += b'\x00\x00'   #Bootp flags: 0x8000 (Broadcast) + reserved flags
-    packet += b'\x00\x00\x00\x00'   #Client IP address: 0.0.0.0
-    packet += ip
-    #packet += b'\xc0\xa8\x00\x0a'   #Your (client) IP address: 0.0.0.0
-    packet += b'\x00\x00\x00\x00'   #Next server IP address: 0.0.0.0
-    packet += b'\x00\x00\x00\x00'   #Relay agent IP address: 0.0.0.0
-    packet += b'\x00\x26\x9e\x04\x1e\x9b'   #Client MAC address: 00:26:9e:04:1e:9b
-    packet += b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'   #Client hardware address padding: 00000000000000000000
-
-    packet += b'\x00' * 64  #Server host name not given
-    packet += b'\x00' * 128 #Boot file name not given
-    packet += b'\x63\x82\x53\x63'   #Magic cookie: DHCP
-    packet += b'\x35\x01\x05'   #Option: (t=53,l=1) DHCP Message Type = DHCP Discover
-    packet += b'\x3a\x04\x00\x00\x07\x08'
-    packet += b'\x3b\x04\x00\x00\x0c\x4e'
-    packet += b'\x33\x04\x00\x00\x0e\x10'
-    packet += b'\x36\x04\x7f\x00\x00\x01'
-    packet += b'\x01\x04\xff\xff\xff\x00'
-    packet += b'\xff'
-    packet += (b'\x00' * 26)   #End Option
-
-    ip_pool.append(ip)
-    
-    return packet
-
 
 def rawPacket():
     packet = b''
